@@ -1,102 +1,47 @@
 #**Finding Lane Lines on the Road** 
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
-<img src="laneLines_thirdPass.jpg" width="480" alt="Combined Image" />
+[//]: # (Image References)
 
-Overview
----
+[canny_edges]: ./results/canny_edges.png "Canny Edges"
+[hough_lines]: ./results/hough_lines.png "Hough Lines"
+[lane_lines]: ./results/lane_lines.png "Lane Lines"
+[region_of_interest]: ./results/region_of_interest.png "Region of Interest"
+[result]: ./results/whiteCarLaneSwitch.png "result"
 
-When we drive, we use our eyes to decide where to go.  The lines on the road that show us where the lanes are act as our constant reference for where to steer the vehicle.  Naturally, one of the first things we would like to do in developing a self-driving car is to automatically detect lane lines using an algorithm.
+### Reflection
 
-In this project you will detect lane lines in images using Python and OpenCV.  OpenCV means "Open-Source Computer Vision", which is a package that has many useful tools for analyzing images.  
+###1. Description of Pipeline
 
-To complete the project, two files will be submitted: a file containing project code and a file containing a brief write up explaining your solution. We have included template files to be used both for the [code](https://github.com/udacity/CarND-LaneLines-P1/blob/master/P1.ipynb) and the [writeup](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md).The code file is called P1.ipynb and the writeup template is writeup_template.md 
+My pipeline consisted of 6 steps. I first converted the raw image to grayscale, then applied a slight Gaussian blur. With the resulting image, I applied the Canny transform with a low threshold of 50 and high threshold of 200. The resulting edges are shown below.
 
-To meet specifications in the project, take a look at the requirements in the [project rubric](https://review.udacity.com/#!/rubrics/322/view)
+![canny_edges.png][canny_edges]
+
+From there, I applied a region of interest mask to the lower center triangular region of the image. This region of interest is shown below on the original image.
+
+![region_of_interest.png][region_of_interest]
+
+I then applied the Hough Line Transform to find straight lines within the region of interest.
+
+![hough_lines.png][hough_lines]
+
+In order to draw a single line on the left and right lanes, I modified the draw_lines() function to take an average of the lines returned from the Hough transform. By categorizing the lines by their slope, I associated the positively sloped lines with the left lane line and negatively sloped lines with the right lane line. I then averaged the coordinates of each lane to calculate an average pair of points to represent the average line. To filter out lines that were not likely part of the lanes, I only included lines with slopes greater than 0.5 or less than -0.5. With the averaged pair of points, I was able to compute the slope and intercept, and apply a standard line formula to points based on the dimension of the orignal image.
+
+![lane_lines.png][lane_lines]
+
+I then used the weighted_image() function to overlay the averaged lane lines over the original image.
+
+![result.png][result] 
 
 
-Creating a Great Writeup
----
-For this project, a great writeup should provide a detailed response to the "Reflection" section of the [project rubric](https://review.udacity.com/#!/rubrics/322/view). There are three parts to the reflection:
-1. Describe the pipeline
-2. Identify any shortcomings
-3. Suggest possible improvements
+###2. Potential Shortcomings
 
-We encourage using images in your writeup to demonstrate how your pipeline works.  
+One potential shortcoming with my approach would be if the vehicle approached a 90-degree turn with lane lines. Based on my naive line filtering logic, the lane lines on the perpendicular road would not be recognized as a lane because their slope would be within -0.5 and 0.5, even close to a slope of 0. 
 
-All that said, please be concise!  We're not looking for you to write a book here: just a brief description.
-
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup. Here is a link to a [writeup template file](https://github.com/udacity/CarND-LaneLines-P1/blob/master/writeup_template.md). 
+A couple shortcomings are apparent when the pipeline is applied to the challenge video. The more obvious one appears when the lanes are significantly curved. The detected lane lines cannot follow the curve by the current pipeline design, and thus simply go straight through the curve and only follow the straight portion of the lane closer to the vehicle. Another shortcoming appears when the lane is difficult to detect against the color of the road. The detected left lane line actually disappears for a split second in this section of the challenge video, likely because the pipeline does not detect any valid edges in that section of the road.
 
 
-The Project
----
+###3. Possible Improvements
 
-## If you have already installed the [CarND Term1 Starter Kit](https://github.com/udacity/CarND-Term1-Starter-Kit/blob/master/README.md) you should be good to go!   If not, you can install the starter kit or follow the install instructions below to get started on this project. ##
+A possible improvement would be to perhaps use the detected lane line from the previous few frames when no new lane line is detected. Using historical lane lines would most likely be accurate because the lane is presumably a continuous line. For the segments of time where the lane cannot be detected, an extrapolation based on the previous lane line should suffice. This would address the issue of disappearing lane lines.
 
-**Step 1:** Getting setup with Python
-
-To do this project, you will need Python 3 along with the numpy, matplotlib, and OpenCV libraries, as well as Jupyter Notebook installed. 
-
-We recommend downloading and installing the Anaconda Python 3 distribution from Continuum Analytics because it comes prepackaged with many of the Python dependencies you will need for this and future projects, makes it easy to install OpenCV, and includes Jupyter Notebook.  Beyond that, it is one of the most common Python distributions used in data analytics and machine learning, so a great choice if you're getting started in the field.
-
-Choose the appropriate Python 3 Anaconda install package for your operating system <A HREF="https://www.continuum.io/downloads" target="_blank">here</A>.   Download and install the package.
-
-If you already have Anaconda for Python 2 installed, you can create a separate environment for Python 3 and all the appropriate dependencies with the following command:
-
-`>  conda create --name=yourNewEnvironment python=3 anaconda`
-
-`>  source activate yourNewEnvironment`
-
-**Step 2:** Installing OpenCV
-
-Once you have Anaconda installed, first double check you are in your Python 3 environment:
-
-`>python`    
-`Python 3.5.2 |Anaconda 4.1.1 (x86_64)| (default, Jul  2 2016, 17:52:12)`  
-`[GCC 4.2.1 Compatible Apple LLVM 4.2 (clang-425.0.28)] on darwin`  
-`Type "help", "copyright", "credits" or "license" for more information.`  
-`>>>`   
-(Ctrl-d to exit Python)
-
-run the following commands at the terminal prompt to get OpenCV:
-
-`> pip install pillow`  
-`> conda install -c menpo opencv3=3.1.0`
-
-then to test if OpenCV is installed correctly:
-
-`> python`  
-`>>> import cv2`  
-`>>>`  (i.e. did not get an ImportError)
-
-(Ctrl-d to exit Python)
-
-**Step 3:** Installing moviepy  
-
-We recommend the "moviepy" package for processing video in this project (though you're welcome to use other packages if you prefer).  
-
-To install moviepy run:
-
-`>pip install moviepy`  
-
-and check that the install worked:
-
-`>python`  
-`>>>import moviepy`  
-`>>>`  (i.e. did not get an ImportError)
-
-(Ctrl-d to exit Python)
-
-**Step 4:** Opening the code in a Jupyter Notebook
-
-You will complete this project in a Jupyter notebook.  If you are unfamiliar with Jupyter Notebooks, check out <A HREF="https://www.packtpub.com/books/content/basics-jupyter-notebook-and-python" target="_blank">Cyrille Rossant's Basics of Jupyter Notebook and Python</A> to get started.
-
-Jupyter is an ipython notebook where you can run blocks of code and see results interactively.  All the code for this project is contained in a Jupyter notebook. To start Jupyter in your browser, run the following command at the terminal prompt (be sure you're in your Python 3 environment!):
-
-`> jupyter notebook`
-
-A browser window will appear showing the contents of the current directory.  Click on the file called "P1.ipynb".  Another browser window will appear displaying the notebook.  Follow the instructions in the notebook to complete the project.  
-
-**Step 5:** Complete the project and submit both the Ipython notebook and the project writeup
-
+Another simple improvement would be to look for lane lines on the appropriate half of the image. As noted above, I looked for positively and negatively sloped lines to determine whether they belonged to the left lane or right lane. This could be further improved by only looking for positively sloped lines on the left half of the image and negatively sloped lines on the right half of the image. Considering lines from the entire region of interest leads to noise that could potentially alter the average slope of the lane line.
